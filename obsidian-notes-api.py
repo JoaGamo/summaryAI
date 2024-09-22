@@ -3,6 +3,7 @@ from flask_cors import CORS
 import os
 from dotenv import load_dotenv
 import mimetypes
+import json
 
 app = Flask(__name__)
 CORS(app)
@@ -15,22 +16,25 @@ NOTES_PATH = os.path.join(REPO_PATH, 'notes')
 def get_file_structure():
     structure = {}
     for year in os.listdir(NOTES_PATH):
-        year_path = os.path.join(NOTES_PATH, year)
-        if os.path.isdir(year_path):
-            structure[year] = {}
-            for semester in os.listdir(year_path):
-                semester_path = os.path.join(year_path, semester)
-                if os.path.isdir(semester_path):
-                    structure[year][semester] = {}
-                    for subject in os.listdir(semester_path):
-                        subject_path = os.path.join(semester_path, subject)
-                        if os.path.isdir(subject_path):
-                            structure[year][semester][subject] = []
-                            for root, _, files in os.walk(subject_path):
-                                for file in files:
-                                    if file.endswith(('.md', '.pdf', '.png')):
-                                        rel_path = os.path.relpath(os.path.join(root, file), subject_path)
-                                        structure[year][semester][subject].append(rel_path)
+        if not year.startswith('.'):
+            year_path = os.path.join(NOTES_PATH, year)
+            if os.path.isdir(year_path):
+                structure[year] = {}
+                for semester in os.listdir(year_path):
+                    if not semester.startswith('.'):
+                        semester_path = os.path.join(year_path, semester)
+                        if os.path.isdir(semester_path):
+                            structure[year][semester] = {}
+                            for subject in os.listdir(semester_path):
+                                if not subject.startswith('.'):
+                                    subject_path = os.path.join(semester_path, subject)
+                                    if os.path.isdir(subject_path):
+                                        structure[year][semester][subject] = []
+                                        for root, _, files in os.walk(subject_path):
+                                            for file in files:
+                                                if file.endswith(('.md', '.pdf', '.png', '.excalidraw.md')):
+                                                    rel_path = os.path.relpath(os.path.join(root, file), subject_path)
+                                                    structure[year][semester][subject].append(rel_path)
     return structure
 
 @app.route('/api/file-structure')
@@ -55,7 +59,13 @@ def get_note():
     
     mime_type, _ = mimetypes.guess_type(file_path)
     
-    if file.endswith('.md'):
+    if file.endswith('.excalidraw.md'):
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        # Extract the JSON part from the markdown file
+        json_content = content.split('```json')[1].split('```')[0]
+        return Response(json_content, mimetype='application/json')
+    elif file.endswith('.md'):
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
         return Response(content, mimetype='text/markdown')
