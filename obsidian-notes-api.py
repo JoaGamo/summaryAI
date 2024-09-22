@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 import mimetypes
 import json
+import re
 
 app = Flask(__name__)
 CORS(app)
@@ -58,13 +59,17 @@ def get_note():
         return jsonify({"error": "File not found"}), 404
     
     mime_type, _ = mimetypes.guess_type(file_path)
-    
+
     if file.endswith('.excalidraw.md'):
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
         # Extract the JSON part from the markdown file
-        json_content = content.split('```json')[1].split('```')[0]
-        return Response(json_content, mimetype='application/json')
+        json_match = re.search(r'```json\n(.*?)\n```', content, re.DOTALL)
+        if json_match:
+            json_content = json_match.group(1)
+            return Response(json_content, mimetype='application/json')
+        else:
+            return jsonify({"error": "No JSON content found in Excalidraw file"}), 400
     elif file.endswith('.md'):
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -72,7 +77,7 @@ def get_note():
     elif mime_type:
         return send_file(file_path, mimetype=mime_type)
     else:
-        return jsonify({"error": "Unsupported file type"}), 400
+        return jsonify({"error": "Unsupported file type"}), 400 
 
 @app.route('/')
 def serve_frontend():

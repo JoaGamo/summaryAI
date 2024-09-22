@@ -1,7 +1,22 @@
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Lora', serif;
     background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
     color: #d1d5db;
+}
+
+.file-explorer {
+    width: 250px;
+    min-width: 200px;
+    max-width: 50%;
+    background-color: rgba(32, 34, 37, 0.7); /* Slightly transparent background */
+    padding: 20px;
+    overflow-y: auto;
+    flex-shrink: 0;
 }
 
 .container {
@@ -10,15 +25,6 @@ body {
     overflow: hidden;
 }
 
-.file-explorer {
-    width: 250px;
-    min-width: 200px;
-    max-width: 50%;
-    background-color: #202225;
-    padding: 20px;
-    overflow-y: auto;
-    flex-shrink: 0;
-}
 
 .file-tree {
     list-style-type: none;
@@ -36,7 +42,7 @@ body {
 }
 
 .file-tree li:hover {
-    background-color: rgba(128, 0, 128, 0.2); /* Light purple background */
+    background-color: rgba(255, 255, 255, 0.1); /* Subtle light background on hover */
 }
 
 .folder, .file {
@@ -47,7 +53,7 @@ body {
 }
 
 .folder:hover, .file:hover {
-    background-color: #7e57c2; /* Deeper purple on hover */
+    background-color: rgba(255, 255, 255, 0.2); /* Slightly lighter on hover */
     color: #ffffff;
 }
 
@@ -118,11 +124,9 @@ button:hover {
 }
 
 #noteContent {
-    background-color: #2f3136;
-    padding: 20px;
-    border-radius: 5px;
-    margin-top: 20px;
-    white-space: pre-wrap;
+    font-family: 'Lora', serif;
+    line-height: 1.6;
+    color: #e1e1e1;
 }
 
 /* Markdown Styling */
