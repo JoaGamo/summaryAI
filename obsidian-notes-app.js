@@ -1,189 +1,206 @@
-// URL base de la API
+const allowedExtensions = ['.md', '.pdf', '.png'];
 const API_BASE_URL = 'http://127.0.0.1:5000';
 
-// Estructura de datos para almacenar la información de los archivos
-let fileStructure = {};
-
-// Lista blanca de extensiones permitidas
-const allowedExtensions = ['.md', '.pdf', '.png', '.jpg', '.jpeg', '.gif'];
-
-// Lista de carpetas a filtrar
-const filteredFolders = ['.git', '.obsidian'];
-
-// Función para cargar la estructura de archivos
 async function loadFileStructure() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/file-structure`);
-        fileStructure = await response.json();
-        renderFileExplorer();
-    } catch (error) {
-        console.error('Error al cargar la estructura de archivos:', error);
-    }
-}
+        const data = await response.json();
+        const fileTree = document.getElementById('fileTree');
+        createFileTree(data, fileTree);
 
-// Función para renderizar el explorador de archivos
-function renderFileExplorer() {
-    const explorer = document.getElementById('file-explorer');
-    explorer.innerHTML = '';
+        // Populate year, semester, and subject selects
+        const years = Object.keys(data);
+        const semesters = new Set();
+        const subjects = new Set();
 
-    function createTreeNode(name, isFolder, children = [], path = []) {
-        if (filteredFolders.includes(name)) {
-            return null;
-        }
-
-        const element = document.createElement('div');
-        element.className = isFolder ? 'folder-item' : 'file-item';
-        element.textContent = name;
-
-        if (isFolder) {
-            const content = document.createElement('div');
-            content.className = 'folder-content';
-            content.style.display = 'none';
-
-            element.addEventListener('click', (e) => {
-                e.stopPropagation();
-                element.classList.toggle('open');
-                content.style.display = content.style.display === 'none' ? 'block' : 'none';
+        years.forEach(year => {
+            Object.keys(data[year]).forEach(semester => {
+                semesters.add(semester);
+                Object.keys(data[year][semester]).forEach(subject => {
+                    subjects.add(subject);
+                });
             });
-
-            children.forEach(child => {
-                const childIsFolder = Array.isArray(child) || typeof child === 'object';
-                const childName = childIsFolder ? child.name || Object.keys(child)[0] : child;
-                const childNode = createTreeNode(childName, childIsFolder, childIsFolder ? (child.children || Object.values(child)[0]) : [], [...path, name]);
-                if (childNode) {
-                    content.appendChild(childNode);
-                }
-            });
-
-            const wrapper = document.createElement('div');
-            wrapper.appendChild(element);
-            wrapper.appendChild(content);
-            return wrapper;
-        } else {
-            if (allowedExtensions.some(ext => name.toLowerCase().endsWith(ext))) {
-                element.addEventListener('click', () => loadNote([...path, name].join('/')));
-                return element;
-            }
-            return null;
-        }
-    }
-
-    for (const year in fileStructure) {
-        const yearNode = createTreeNode(year, true, 
-            Object.entries(fileStructure[year]).map(([semester, subjects]) => ({
-                name: semester,
-                children: Object.entries(subjects).map(([subject, files]) => ({
-                    name: subject,
-                    children: files
-                }))
-            })),
-            []
-        );
-        if (yearNode) {
-            explorer.appendChild(yearNode);
-        }
-    }
-}
-
-// Función para cargar una nota
-async function loadNote(filePath) {
-    const [year, semester, subject, file] = filePath.split('/');
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/note?year=${year}&semester=${semester}&subject=${subject}&file=${file}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('text/markdown')) {
-            const content = await response.text();
-            displayNote(content, file, 'markdown');
-        } else if (contentType && contentType.includes('application/pdf')) {
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            displayNote(url, file, 'pdf');
-        } else if (contentType && contentType.includes('image/')) {
-            const blob = await response.blob();
-            const url = URL.createObjectURL(blob);
-            displayNote(url, file, 'image');
-        } else {
-            throw new Error('Tipo de archivo no soportado');
-        }
-    } catch (error) {
-        console.error('Error al cargar la nota:', error);
-    }
-}
-
-// Función para mostrar el contenido de una nota
-function displayNote(content, fileName, type) {
-    const noteContent = document.getElementById('note-content');
-    
-    switch (type) {
-        case 'markdown':
-            noteContent.innerHTML = marked(content);
-            hljs.highlightAll();
-            break;
-        case 'pdf':
-            noteContent.innerHTML = `<embed src="${content}" type="application/pdf" width="100%" height="100%" />`;
-            break;
-        case 'image':
-            noteContent.innerHTML = `<img src="${content}" alt="${fileName}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />`;
-            break;
-        default:
-            noteContent.textContent = 'Tipo de archivo no soportado';
-    }
-}
-
-// Función para manejar la búsqueda
-function handleSearch() {
-    const searchInput = document.getElementById('search-input');
-    const query = searchInput.value.toLowerCase();
-
-    function searchInFolder(folder) {
-        let hasMatch = false;
-        const matchingChildren = [];
-
-        for (const child of folder.children) {
-            const childName = typeof child === 'string' ? child : child.name;
-            if (Array.isArray(child.children)) {
-                const childResult = searchInFolder(child);
-                if (childResult.hasMatch) {
-                    hasMatch = true;
-                    matchingChildren.push({...child, children: childResult.matchingChildren});
-                }
-            } else if (childName.toLowerCase().includes(query)) {
-                hasMatch = true;
-                matchingChildren.push(child);
-            }
-        }
-
-        return { hasMatch, matchingChildren };
-    }
-
-    const filteredStructure = {};
-    for (const year in fileStructure) {
-        const yearResult = searchInFolder({
-            name: year,
-            children: Object.entries(fileStructure[year]).map(([semester, subjects]) => ({
-                name: semester,
-                children: Object.entries(subjects).map(([subject, files]) => ({
-                    name: subject,
-                    children: files
-                }))
-            }))
         });
 
-        if (yearResult.hasMatch) {
-            filteredStructure[year] = yearResult.matchingChildren;
+        const yearSelect = document.getElementById('yearSelect');
+        const semesterSelect = document.getElementById('semesterSelect');
+        const subjectSelect = document.getElementById('subjectSelect');
+
+        populateSelect(yearSelect, years);
+        populateSelect(semesterSelect, semesters);
+        populateSelect(subjectSelect, subjects);
+
+    } catch (error) {
+        console.error('Error loading file structure:', error);
+    }
+}
+
+function createFileTree(data, container) {
+    for (let year in data) {
+        let yearLi = document.createElement('li');
+        let yearSpan = document.createElement('span');
+        yearSpan.textContent = year;
+        yearSpan.className = 'folder';
+        yearLi.appendChild(yearSpan);
+        let yearUl = document.createElement('ul');
+        yearUl.style.display = 'none';
+        
+        for (let semester in data[year]) {
+            let semesterLi = document.createElement('li');
+            let semesterSpan = document.createElement('span');
+            semesterSpan.textContent = semester;
+            semesterSpan.className = 'folder';
+            semesterLi.appendChild(semesterSpan);
+            let semesterUl = document.createElement('ul');
+            semesterUl.style.display = 'none';
+            
+            for (let subject in data[year][semester]) {
+                let subjectLi = document.createElement('li');
+                let subjectSpan = document.createElement('span');
+                subjectSpan.textContent = subject;
+                subjectSpan.className = 'folder';
+                subjectLi.appendChild(subjectSpan);
+                let subjectUl = document.createElement('ul');
+                subjectUl.style.display = 'none';
+                
+                data[year][semester][subject].forEach(file => {
+                    if (allowedExtensions.some(ext => file.endsWith(ext))) {
+                        let fileLi = document.createElement('li');
+                        fileLi.textContent = file;
+                        fileLi.className = 'file';
+                        fileLi.onclick = function() {
+                            loadNote(year, semester, subject, file);
+                        };
+                        subjectUl.appendChild(fileLi);
+                    }
+                });
+                
+                subjectLi.appendChild(subjectUl);
+                semesterUl.appendChild(subjectLi);
+            }
+            
+            semesterLi.appendChild(semesterUl);
+            yearUl.appendChild(semesterLi);
         }
+        
+        yearLi.appendChild(yearUl);
+        container.appendChild(yearLi);
     }
 
-    const tempStructure = fileStructure;
-    fileStructure = filteredStructure;
-    renderFileExplorer();
-    fileStructure = tempStructure;
+    // Add click event to all folder spans
+    container.querySelectorAll('.folder').forEach(folder => {
+        folder.onclick = function() {
+            this.classList.toggle('open');
+            this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none';
+        };
+    });
 }
-// Event listeners
-document.getElementById('search-input').addEventListener('input', handleSearch);
 
-// Inicialización
-loadFileStructure();
+async function loadNote(year, semester, subject, file) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/note?year=${encodeURIComponent(year)}&semester=${encodeURIComponent(semester)}&subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}`);
+        const noteContainer = document.getElementById('noteContent');
+        
+        if (file.endsWith('.md')) {
+            const noteContent = await response.text();
+            noteContainer.innerHTML = marked(noteContent);
+            hljs.highlightAll();
+        } else if (file.endsWith('.pdf')) {
+            noteContainer.innerHTML = `<embed src="${API_BASE_URL}/api/note?year=${encodeURIComponent(year)}&semester=${encodeURIComponent(semester)}&subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}" type="application/pdf" width="100%" height="600px" />`;
+        } else if (file.endsWith('.png')) {
+            noteContainer.innerHTML = `<img src="${API_BASE_URL}/api/note?year=${encodeURIComponent(year)}&semester=${encodeURIComponent(semester)}&subject=${encodeURIComponent(subject)}&file=${encodeURIComponent(file)}" alt="Note Image" style="max-width: 100%;" />`;
+        }
+    } catch (error) {
+        console.error('Error loading note:', error);
+        noteContainer.innerHTML = `<p>Error loading note: ${error.message}</p>`;
+    }
+}
+
+function populateSelect(selectElement, options) {
+    options.forEach(option => {
+        const optionElement = document.createElement('option');
+        optionElement.value = option;
+        optionElement.textContent = option;
+        selectElement.appendChild(optionElement);
+    });
+}
+
+function searchNotes() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const selectedYear = document.getElementById('yearSelect').value;
+    const selectedSemester = document.getElementById('semesterSelect').value;
+    const selectedSubject = document.getElementById('subjectSelect').value;
+
+    const fileItems = document.querySelectorAll('.file-tree li');
+    fileItems.forEach(item => {
+        const isFile = item.classList.contains('file');
+        if (isFile) {
+            const filePath = getFilePath(item);
+            const [year, semester, subject, fileName] = filePath;
+            
+            const matchesSearch = fileName.toLowerCase().includes(searchTerm);
+            const matchesYear = selectedYear === '' || year === selectedYear;
+            const matchesSemester = selectedSemester === '' || semester === selectedSemester;
+            const matchesSubject = selectedSubject === '' || subject === selectedSubject;
+
+            if (matchesSearch && matchesYear && matchesSemester && matchesSubject) {
+                item.style.display = 'block';
+                showParents(item);
+            } else {
+                item.style.display = 'none';
+            }
+        }
+    });
+}
+
+function getFilePath(fileItem) {
+    const path = [];
+    let current = fileItem;
+    while (current && !current.classList.contains('file-tree')) {
+        if (current.previousElementSibling && current.previousElementSibling.textContent) {
+            path.unshift(current.previousElementSibling.textContent);
+        } else if (current.classList.contains('file')) {
+            path.push(current.textContent);
+        }
+        current = current.parentElement;
+    }
+    return path;
+}
+
+function showParents(item) {
+    let parent = item.parentElement;
+    while (parent && !parent.classList.contains('file-tree')) {
+        if (parent.style.display === 'none') {
+            parent.style.display = 'block';
+            if (parent.previousElementSibling) {
+                parent.previousElementSibling.classList.add('open');
+            }
+        }
+        parent = parent.parentElement;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadFileStructure);
+
+// Resizer functionality
+const resizer = document.getElementById('resizer');
+const fileExplorer = document.querySelector('.file-explorer');
+
+let isResizing = false;
+
+resizer.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    document.addEventListener('mousemove', resize);
+    document.addEventListener('mouseup', stopResize);
+});
+
+function resize(e) {
+    if (isResizing) {
+        fileExplorer.style.width = `${e.clientX}px`;
+    }
+}
+
+function stopResize() {
+    isResizing = false;
+    document.removeEventListener('mousemove', resize);
+}           

@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, send_from_directory, Response
+from flask import Flask, jsonify, request, send_file, Response
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
@@ -7,7 +7,7 @@ import mimetypes
 app = Flask(__name__)
 CORS(app)
 
-# Configuración 
+# Configuration
 load_dotenv()
 REPO_PATH = os.getenv('REPO_PATH')
 NOTES_PATH = os.path.join(REPO_PATH, 'notes')
@@ -25,10 +25,12 @@ def get_file_structure():
                     for subject in os.listdir(semester_path):
                         subject_path = os.path.join(semester_path, subject)
                         if os.path.isdir(subject_path):
-                            structure[year][semester][subject] = [
-                                f for f in os.listdir(subject_path)
-                                if os.path.isfile(os.path.join(subject_path, f))
-                            ]
+                            structure[year][semester][subject] = []
+                            for root, _, files in os.walk(subject_path):
+                                for file in files:
+                                    if file.endswith(('.md', '.pdf', '.png')):
+                                        rel_path = os.path.relpath(os.path.join(root, file), subject_path)
+                                        structure[year][semester][subject].append(rel_path)
     return structure
 
 @app.route('/api/file-structure')
@@ -51,25 +53,24 @@ def get_note():
     if not os.path.exists(file_path):
         return jsonify({"error": "File not found"}), 404
     
-    _, file_extension = os.path.splitext(file)
     mime_type, _ = mimetypes.guess_type(file_path)
     
-    if file_extension == '.md':
+    if file.endswith('.md'):
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
         return Response(content, mimetype='text/markdown')
     elif mime_type:
-        return send_from_directory(os.path.dirname(file_path), os.path.basename(file_path), mimetype=mime_type)
+        return send_file(file_path, mimetype=mime_type)
     else:
         return jsonify({"error": "Unsupported file type"}), 400
 
 @app.route('/')
 def serve_frontend():
-    return send_from_directory('.', 'index.html')
+    return send_file('index.html')
 
 @app.route('/<path:path>')
 def serve_static(path):
-    return send_from_directory('.', path)
+    return send_file(path)
 
 if __name__ == '__main__':
     app.run(debug=True)
