@@ -1,0 +1,129 @@
+body {
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    height: 100vh;
+    background: linear-gradient(135deg, #2a0845 0%, #6441A5 100%);
+    color: #d4d4d4;
+}
+
+#file-explorer {
+    width: 250px;
+    height: 100%;
+    overflow-y: auto;
+    background-color: rgba(40, 40, 40, 0.9);
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+#main-content {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto;
+    background-color: rgba(30, 30, 30, 0.9);
+    display: flex;
+    flex-direction: column;
+}
+
+#search-container {
+    margin-bottom: 20px;
+}
+
+#search-input {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    background-color: #3a3a3a;
+    color: #d4d4d4;
+}
+
+#note-content {
+    background-color: #2d2d2d;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    flex-grow: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.folder-item, .file-item {
+    cursor: pointer;
+    padding: 5px 0;
+    transition: all 0.3s ease;
+}
+
+.folder-item::before {
+    content: '📁';
+    margin-right: 5px;
+}
+
+.folder-item.open::before {
+    content: '📂';
+}
+
+.file-item::before {
+    content: '📄';
+    margin-right: 5px;
+}
+
+.folder-content {
+    margin-left: 20px;
+}
+
+/* Estilos para el contenido Markdown renderizado */
+#note-content h1, #note-content h2, #note-content h3, #note-content h4, #note-content h5, #note-content h6 {
+    color: #bb86fc;
+}
+
+#note-content a {
+    color: #03dac6;
+}
+
+#note-content pre {
+    background-color: #1e1e1e;
+    padding: 10px;
+    border-radius: 5px;
+    overflow-x: auto;
+}
+
+#note-content code {
+    font-family: 'Fira Code', monospace;
+}
+
+#note-content blockquote {
+    border-left: 3px solid #bb86fc;
+    margin: 0;
+    padding-left: 20px;
+    color: #a0a0a0;
+}
+
+/* Estilos para PDF e imágenes */
+#note-content embed, #note-content img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    body {
+        flex-direction: column;
+    }
+
+    #file-explorer {
+        width: 100%;
+        height: auto;
+        max-height: 30vh;
+    }
+
+    #main-content {
+        height: 70vh;
+    }
+}

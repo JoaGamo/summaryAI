@@ -5,7 +5,10 @@ const API_BASE_URL = 'http://127.0.0.1:5000';
 let fileStructure = {};
 
 // Lista blanca de extensiones permitidas
-const allowedExtensions = ['.md', '.pdf', '.png'];
+const allowedExtensions = ['.md', '.pdf', '.png', '.jpg', '.jpeg', '.gif'];
+
+// Lista de carpetas a filtrar
+const filteredFolders = ['.git', '.obsidian'];
 
 // Función para cargar la estructura de archivos
 async function loadFileStructure() {
@@ -23,7 +26,11 @@ function renderFileExplorer() {
     const explorer = document.getElementById('file-explorer');
     explorer.innerHTML = '';
 
-    function createTreeNode(name, isFolder, children = []) {
+    function createTreeNode(name, isFolder, children = [], path = []) {
+        if (filteredFolders.includes(name)) {
+            return null;
+        }
+
         const element = document.createElement('div');
         element.className = isFolder ? 'folder-item' : 'file-item';
         element.textContent = name;
@@ -40,8 +47,10 @@ function renderFileExplorer() {
             });
 
             children.forEach(child => {
-                if (child.isFolder || allowedExtensions.some(ext => child.name.endsWith(ext))) {
-                    const childNode = createTreeNode(child.name, child.isFolder, child.children);
+                const childIsFolder = Array.isArray(child) || typeof child === 'object';
+                const childName = childIsFolder ? child.name || Object.keys(child)[0] : child;
+                const childNode = createTreeNode(childName, childIsFolder, childIsFolder ? (child.children || Object.values(child)[0]) : [], [...path, name]);
+                if (childNode) {
                     content.appendChild(childNode);
                 }
             });
@@ -51,8 +60,11 @@ function renderFileExplorer() {
             wrapper.appendChild(content);
             return wrapper;
         } else {
-            element.addEventListener('click', () => loadNote(name));
-            return element;
+            if (allowedExtensions.some(ext => name.toLowerCase().endsWith(ext))) {
+                element.addEventListener('click', () => loadNote([...path, name].join('/')));
+                return element;
+            }
+            return null;
         }
     }
 
@@ -60,34 +72,65 @@ function renderFileExplorer() {
         const yearNode = createTreeNode(year, true, 
             Object.entries(fileStructure[year]).map(([semester, subjects]) => ({
                 name: semester,
-                isFolder: true,
                 children: Object.entries(subjects).map(([subject, files]) => ({
                     name: subject,
-                    isFolder: true,
-                    children: files.map(file => ({ name: file, isFolder: false }))
+                    children: files
                 }))
-            }))
+            })),
+            []
         );
-        explorer.appendChild(yearNode);
+        if (yearNode) {
+            explorer.appendChild(yearNode);
+        }
     }
 }
 
 // Función para cargar una nota
-async function loadNote(file) {
+async function loadNote(filePath) {
+    const [year, semester, subject, file] = filePath.split('/');
     try {
-        const response = await fetch(`${API_BASE_URL}/api/note?file=${file}`);
-        const noteContent = await response.text();
-        displayNote(noteContent);
+        const response = await fetch(`${API_BASE_URL}/api/note?year=${year}&semester=${semester}&subject=${subject}&file=${file}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('text/markdown')) {
+            const content = await response.text();
+            displayNote(content, file, 'markdown');
+        } else if (contentType && contentType.includes('application/pdf')) {
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            displayNote(url, file, 'pdf');
+        } else if (contentType && contentType.includes('image/')) {
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            displayNote(url, file, 'image');
+        } else {
+            throw new Error('Tipo de archivo no soportado');
+        }
     } catch (error) {
         console.error('Error al cargar la nota:', error);
     }
 }
 
 // Función para mostrar el contenido de una nota
-function displayNote(content) {
+function displayNote(content, fileName, type) {
     const noteContent = document.getElementById('note-content');
-    noteContent.innerHTML = marked(content);
-    hljs.highlightAll();
+    
+    switch (type) {
+        case 'markdown':
+            noteContent.innerHTML = marked(content);
+            hljs.highlightAll();
+            break;
+        case 'pdf':
+            noteContent.innerHTML = `<embed src="${content}" type="application/pdf" width="100%" height="100%" />`;
+            break;
+        case 'image':
+            noteContent.innerHTML = `<img src="${content}" alt="${fileName}" style="max-width: 100%; max-height: 100%; object-fit: contain;" />`;
+            break;
+        default:
+            noteContent.textContent = 'Tipo de archivo no soportado';
+    }
 }
 
 // Función para manejar la búsqueda
@@ -100,13 +143,14 @@ function handleSearch() {
         const matchingChildren = [];
 
         for (const child of folder.children) {
-            if (child.isFolder) {
+            const childName = typeof child === 'string' ? child : child.name;
+            if (Array.isArray(child.children)) {
                 const childResult = searchInFolder(child);
                 if (childResult.hasMatch) {
                     hasMatch = true;
                     matchingChildren.push({...child, children: childResult.matchingChildren});
                 }
-            } else if (allowedExtensions.some(ext => child.name.endsWith(ext)) && child.name.toLowerCase().includes(query)) {
+            } else if (childName.toLowerCase().includes(query)) {
                 hasMatch = true;
                 matchingChildren.push(child);
             }
@@ -119,14 +163,11 @@ function handleSearch() {
     for (const year in fileStructure) {
         const yearResult = searchInFolder({
             name: year,
-            isFolder: true,
             children: Object.entries(fileStructure[year]).map(([semester, subjects]) => ({
                 name: semester,
-                isFolder: true,
                 children: Object.entries(subjects).map(([subject, files]) => ({
                     name: subject,
-                    isFolder: true,
-                    children: files.map(file => ({ name: file, isFolder: false }))
+                    children: files
                 }))
             }))
         });
@@ -141,9 +182,8 @@ function handleSearch() {
     renderFileExplorer();
     fileStructure = tempStructure;
 }
-
 // Event listeners
 document.getElementById('search-input').addEventListener('input', handleSearch);
 
 // Inicialización
-loadFileStructure();            
+loadFileStructure();
