@@ -1,8 +1,8 @@
-import git
 import os
 from dotenv import load_dotenv
 from airllm import AutoModel
 import torch
+from flask import Flask, request, jsonify
 
 load_dotenv()
 REPO_PATH = os.getenv('REPO_PATH')
@@ -14,6 +14,7 @@ MAX_NEW_TOKENS = 24576  # Ajustado para generar resúmenes más largos
 model = AutoModel.from_pretrained("unsloth/Meta-Llama-3.1-405B-Instruct-bnb-4bit")
 model.cuda()  # Mover el modelo a la GPU
 
+app = Flask(__name__)
 
 def generate_summary(content):
     prompt = f"""
