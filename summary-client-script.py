@@ -3,15 +3,11 @@ import requests
 from dotenv import load_dotenv
 
 load_dotenv()
-AI_SERVER_IP = os.getenv('API_URL', 'http://127.0.0.1:5000')
+AI_SERVER_IP = os.getenv('AI_SERVER_IP', '127.0.0.1:5000')
 REPO_PATH = os.getenv('REPO_PATH')
-API_URL = f'{AI_SERVER_IP}/generate_summary'
+API_URL = f'http://{AI_SERVER_IP}/generate_summary'
 NOTES_PATH = os.path.join(REPO_PATH, 'notes')
 
-
-def update_repo():
-    # Implementar lógica para pullear... ???
-    pass
 
 def generate_summaries():
     for root, dirs, files in os.walk(NOTES_PATH):
@@ -35,6 +31,4 @@ def generate_summaries():
                         print(f"No se pudo generar el resumen para {file}: {response.json().get('error', 'Unknown error')}")
 
 if __name__ == '__main__':
-    update_repo()
     generate_summaries()
-            

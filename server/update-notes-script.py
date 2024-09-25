@@ -4,15 +4,17 @@ from airllm import AutoModel
 import torch
 from flask import Flask, request, jsonify
 
-load_dotenv()
-REPO_PATH = os.getenv('REPO_PATH')
-NOTES_PATH = os.path.join(REPO_PATH, 'notes')
+#load_dotenv()
+#REPO_PATH = os.getenv('REPO_PATH')
+#NOTES_PATH = os.path.join(REPO_PATH, 'notes')
 MAX_LENGTH = 49152  # Ajustado para manejar resúmenes más largos
 MAX_NEW_TOKENS = 24576  # Ajustado para generar resúmenes más largos
 
 # Inicializar el modelo AIR LLM con Llama 3.1
-model = AutoModel.from_pretrained("unsloth/Meta-Llama-3.1-405B-Instruct-bnb-4bit")
+#model = AutoModel.from_pretrained("unsloth/Meta-Llama-3.1-405B-Instruct-bnb-4bit")  
+model = AutoModel.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
 model.cuda()  # Mover el modelo a la GPU
+
 
 app = Flask(__name__)
 
